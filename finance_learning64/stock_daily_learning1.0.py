@@ -28,8 +28,8 @@ label_size = 3
 evaluate_size = 3
 lstm_depth = 4
 
-total_size = 20000 #000   //토탈 사이즈  59000
-batch_size = 15000 # 000    //한번에 처리하는 훈련데이타
+total_size = 200#000   //토탈 사이즈  59000
+batch_size = 150 # 000    //한번에 처리하는 훈련데이타
 test_size = total_size - batch_size    # //500 = 2000 -1500 검증 데이타    (test/batch)
 
 def init_weights(shape):
@@ -48,7 +48,7 @@ def model(X, W, B, lstm_size):
     # Make lstm with lstm_size (each input vector size)
     cell = rnn.LSTMCell(lstm_size)
     cell = rnn.DropoutWrapper(cell = cell, output_keep_prob = 0.5)
-    #cell = rnn.MultiRNNCell([cell] * lstm_depth, state_is_tuple = True)
+    cell = rnn.MultiRNNCell([cell] * lstm_depth, state_is_tuple = True)
 
     #lstm_cell = tf.contrib.rnn.LSTMCell(rnn_size)
    # train_outputs, train_states = tf.contrib.rnn.static_rnn(lstm_cell, train_x_temp, dtype=tf.float32)
@@ -155,8 +155,9 @@ with tf.Session() as sess:
     # you need to initialize all variables
     tf.global_variables_initializer().run()
 
-    for i in range(100):
+    for i in range(1000):
         for start, end in zip(range(0, len(trX), batch_size), range(batch_size, len(trX)+1, batch_size)):
+            t_lo,_ = sess.run([loss,train_op], feed_dict={X: trX[start:end], Y: trY[start:end]})
             sess.run(train_op, feed_dict={X: trX[start:end], Y: trY[start:end]})
 
         test_indices = np.arange(len(teX))  # Get A Test(test_indices) Batch
@@ -164,6 +165,6 @@ with tf.Session() as sess:
         test_indices = test_indices[0:test_size]
 
         org = teY[test_indices]
-        res = sess.run(predict_op, feed_dict={X: teX[test_indices], Y: teY[test_indices]})
+        result = sess.run(predict_op, feed_dict={X: teX[test_indices], Y: teY[test_indices]})
 
-        print(i, ':',np.mean(np.argmax(org, axis=1) == res))
+        print(i, 'loss:',result,np.mean(np.argmax(org, axis=1) == result))
