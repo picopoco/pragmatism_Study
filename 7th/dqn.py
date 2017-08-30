@@ -14,22 +14,22 @@ from keras.layers import Convolution2D, Flatten, Dense
 ENV_NAME = 'Breakout-v0'  # Environment name
 FRAME_WIDTH = 84  # Resized frame width
 FRAME_HEIGHT = 84  # Resized frame height
-NUM_EPISODES = 12000  # Number of episodes the agent plays
-STATE_LENGTH = 4  # Number of most recent frames to produce the input to the network
+NUM_EPISODES = 12000  # 에이전트가 재생하는 에피소드의 수
+STATE_LENGTH = 4  # 에이전트가 재생하는 최근 에피소드의 수를 네트워크에 입력
 GAMMA = 0.99  # Discount factor
-EXPLORATION_STEPS = 1000000  # Number of steps over which the initial value of epsilon is linearly annealed to its final value
-INITIAL_EPSILON = 1.0  # Initial value of epsilon in epsilon-greedy
-FINAL_EPSILON = 0.1  # Final value of epsilon in epsilon-greedy
-INITIAL_REPLAY_SIZE = 20000  # Number of steps to populate the replay memory before training starts
-NUM_REPLAY_MEMORY = 400000  # Number of replay memory the agent uses for training
+EXPLORATION_STEPS = 1000000  #  엡실론의 초기 값이 최종 값에 대해 선형으로 어닐링되는 단계 수
+INITIAL_EPSILON = 1.0  # 엡실론 욕심의 엡실론의 초기 값
+FINAL_EPSILON = 0.1  # 엡실론 욕심에 엡실론의 최종 가치
+INITIAL_REPLAY_SIZE = 20000  # 교육을 시작하기 전에 재생 메모리를 채우는 단계 수
+NUM_REPLAY_MEMORY = 400000
 BATCH_SIZE = 32  # Mini batch size
-TARGET_UPDATE_INTERVAL = 10000  # The frequency with which the target network is updated
-TRAIN_INTERVAL = 4  # The agent selects 4 actions between successive updates
-LEARNING_RATE = 0.00025  # Learning rate used by RMSProp
-MOMENTUM = 0.95  # Momentum used by RMSProp
-MIN_GRAD = 0.01  # Constant added to the squared gradient in the denominator of the RMSProp update
-SAVE_INTERVAL = 300000  # The frequency with which the network is saved
-NO_OP_STEPS = 30  # Maximum number of "do nothing" actions to be performed by the agent at the start of an episode
+TARGET_UPDATE_INTERVAL = 10000
+TRAIN_INTERVAL = 4  #
+LEARNING_RATE = 0.00025
+MOMENTUM = 0.95
+MIN_GRAD = 0.01
+SAVE_INTERVAL = 300000
+NO_OP_STEPS = 30
 LOAD_NETWORK = False
 TRAIN = True
 SAVE_NETWORK_PATH = 'saved_networks/' + ENV_NAME
@@ -58,15 +58,13 @@ class Agent():
         self.s, self.q_values, q_network = self.build_network()
         q_network_weights = q_network.trainable_weights
 
-        # Create target network
+        # 타겟 네트워크
         self.st, self.target_q_values, target_network = self.build_network()
         target_network_weights = target_network.trainable_weights
 
-        # Define target network update operation
-        # 타겟 업데이트 정의 
+        # 타겟 업데이트 정의
         self.update_target_network = [target_network_weights[i].assign(q_network_weights[i]) for i in range(len(target_network_weights))]
 
-        # Define loss and gradient update operation
         #loss 연산
         self.a, self.y, self.loss, self.grads_update = self.build_training_op(q_network_weights)
 
@@ -84,7 +82,7 @@ class Agent():
         if LOAD_NETWORK:
             self.load_network()
 
-        # Initialize target network
+        # 타겟 네트워크 초기화
         self.sess.run(self.update_target_network)
 
     def build_network(self):
@@ -105,13 +103,11 @@ class Agent():
         a = tf.placeholder(tf.int64, [None])
         y = tf.placeholder(tf.float32, [None])
 
-        # Convert action to one hot vector
-        # one hot vect
+        # one hot action covert
         a_one_hot = tf.one_hot(a, self.num_actions, 1.0, 0.0)
         q_value = tf.reduce_sum(tf.mul(self.q_values, a_one_hot), reduction_indices=1)
 
-        # Clip the error, the loss is quadratic when the error is in (-1, 1), and linear outside of that region
-        # 
+        #  에러가 (-1,1) 인경우 loss
         error = tf.abs(y - q_value)
         quadratic_part = tf.clip_by_value(error, 0.0, 1.0)
         linear_part = error - quadratic_part
@@ -134,7 +130,7 @@ class Agent():
         else:
             action = np.argmax(self.q_values.eval(feed_dict={self.s: [np.float32(state / 255.0)]}))
 
-        # Anneal epsilon linearly over time
+        # 시간따른 선형  anneal episilon
         if self.epsilon > FINAL_EPSILON and self.t >= INITIAL_REPLAY_SIZE:
             self.epsilon -= self.epsilon_step
 
@@ -143,10 +139,10 @@ class Agent():
     def run(self, state, action, reward, terminal, observation):
         next_state = np.append(state[1:, :, :], observation, axis=0)
 
-        # Clip all positive rewards at 1 and all negative rewards at -1, leaving 0 rewards unchanged
+        #  모든 긍정적 인 보상을 1로, 모든 부정적인 보상을 -1로 묶어 0 보상을 그대로 유지합니다.
         reward = np.clip(reward, -1, 1)
 
-        # Store transition in replay memory
+        # 메모리 저장
         self.replay_memory.append((state, action, reward, next_state, terminal))
         if len(self.replay_memory) > NUM_REPLAY_MEMORY:
             self.replay_memory.popleft()
@@ -156,11 +152,11 @@ class Agent():
             if self.t % TRAIN_INTERVAL == 0:
                 self.train_network()
 
-            # Update target network
+            # 타겟 저장
             if self.t % TARGET_UPDATE_INTERVAL == 0:
                 self.sess.run(self.update_target_network)
 
-            # Save network
+            # 네트워크 저장
             if self.t % SAVE_INTERVAL == 0:
                 save_path = self.saver.save(self.sess, SAVE_NETWORK_PATH + '/' + ENV_NAME, global_step=self.t)
                 print('Successfully saved: ' + save_path)
@@ -170,7 +166,7 @@ class Agent():
         self.duration += 1
 
         if terminal:
-            # Write summary
+            # 서머리 저장
             if self.t >= INITIAL_REPLAY_SIZE:
                 stats = [self.total_reward, self.total_q_max / float(self.duration),
                         self.duration, self.total_loss / (float(self.duration) / float(TRAIN_INTERVAL))]
@@ -181,7 +177,7 @@ class Agent():
                 summary_str = self.sess.run(self.summary_op)
                 self.summary_writer.add_summary(summary_str, self.episode + 1)
 
-            # Debug
+            # 디버그
             if self.t < INITIAL_REPLAY_SIZE:
                 mode = 'random'
             elif INITIAL_REPLAY_SIZE <= self.t < INITIAL_REPLAY_SIZE + EXPLORATION_STEPS:
@@ -211,7 +207,8 @@ class Agent():
         terminal_batch = []
         y_batch = []
 
-        # Sample random minibatch of transition from replay memory
+        # 재생 메모리에서 무작위 샘플 전환
+
         minibatch = random.sample(self.replay_memory, BATCH_SIZE)
         for data in minibatch:
             state_batch.append(data[0])
@@ -220,7 +217,7 @@ class Agent():
             next_state_batch.append(data[3])
             terminal_batch.append(data[4])
 
-        # Convert True to 1, False to 0
+        # 변환 True to 1, False to 0
         terminal_batch = np.array(terminal_batch) + 0
 
         target_q_values_batch = self.target_q_values.eval(feed_dict={self.st: np.float32(np.array(next_state_batch) / 255.0)})
